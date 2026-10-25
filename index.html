@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Apex GP</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;600&display=swap">
 <style>
 :root{color-scheme:light;--c:#dfe1dc;--i:#15181b;--y:#ffd21f;--m:#6a7077;--p:rgba(21,24,27,.84);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html,body{height:100%;margin:0;background:#15181b;color:var(--i);font:15px/1.35 Barlow,system-ui,sans-serif;overflow:hidden}
 canvas#c{position:fixed;inset:0;width:100%;height:100%;filter:saturate(1.18) contrast(1.04);touch-action:none}
+*{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}input[type=range]{touch-action:none}
 .wm,#kmh,#gr,#big,.tm,.lp,h2,#go{font-family:"Barlow Condensed","Arial Narrow",sans-serif}
 #vg{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.4))}
 .hp{position:fixed;background:var(--p);color:var(--c);font-variant-numeric:tabular-nums;border-left:4px solid var(--y)}
@@ -498,7 +500,7 @@ addEventListener('keyup',e=>keys[e.code]=false);
 addEventListener('blur',()=>keys={});
 
 function ol(t){const a=t.p,X=a.map(p=>p[0]),Z=a.map(p=>p[1]),x0=Math.min(...X),z0=Math.min(...Z),k=54/Math.max(Math.max(...X)-x0,Math.max(...Z)-z0);return'<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><path d="M'+a.map(p=>(5+(p[0]-x0)*k).toFixed(1)+' '+(5+(p[1]-z0)*k).toFixed(1)).join('L')+'Z"/></svg>'}
-function sel(){[...$('tks').children].forEach((b,i)=>{b.classList.toggle('on',i===ti);const pb=ls.g('apex:'+TR[i].n);b.querySelector('small').textContent=TR[i].c+(isFinite(pb)?' · PB '+fmt(pb):'')})}
+function sel(){[...$('tks').children].forEach((b,i)=>{b.classList.toggle('on',i===ti);const pb=ls.g('apex:'+TR[i].n);const mb_=matchMedia('(pointer: coarse)').matches;b.querySelector('small').textContent=(mb_?'':TR[i].c)+(isFinite(pb)?(mb_?'':' · ')+'PB '+fmt(pb):'')})}
 TR.forEach((t,i)=>{const b=document.createElement('button');b.className='tk';b.innerHTML=ol(t)+`<span><b>${t.n}</b><small></small></span>`;b.onclick=()=>{ti=i;build(t);sel()};$('tks').append(b)});
 document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-m]').forEach(x=>x.classList.toggle('on',x===b))});
 $('go').onclick=()=>{LVo=false;$('lv').classList.add('hide');start()};
@@ -618,6 +620,15 @@ build(TR[0]);sel();requestAnimationFrame(loop);
       font-weight: 800;
       border-radius: 8px;
     }
+    #mobile-controls #mobile-cam {
+      position: absolute;
+      right: 18px;
+      bottom: calc(max(18px, env(safe-area-inset-bottom)) + clamp(76px, 12vw, 104px) + 14px);
+      width: 52px;
+      height: 52px;
+      font-size: 22px;
+      pointer-events: auto;
+    }
     body.apex-playing #mobile-controls { display: block; }
     @media (pointer: coarse) and (orientation: portrait) {
       body.apex-playing #mobile-controls { display: block; }
@@ -639,6 +650,7 @@ build(TR[0]);sel();requestAnimationFrame(loop);
         <button id="mobile-throttle" aria-label="Accelerate">▲</button>
       </div>
       <button id="tilt-toggle">Enable tilt steering</button>
+      <button id="mobile-cam" aria-label="Change camera">📷</button>
     </div>
     <div id="rotate-screen">
       <div class="rotate-card">
@@ -653,17 +665,43 @@ build(TR[0]);sel();requestAnimationFrame(loop);
   const rotateScreen = document.getElementById("rotate-screen");
   const tiltButton = document.getElementById("tilt-toggle");
 
-  // 2. Ask the browser to lock the game into landscape.
+  // 2. Fullscreen (browsers need a tap first, so it starts on the first touch) and landscape lock.
+  function goFull() {
+    const el = document.documentElement, rq = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!rq || document.fullscreenElement || document.webkitFullscreenElement) return Promise.resolve();
+    try { return Promise.resolve(rq.call(el, { navigationUI: "hide" })).catch(() => {}); }
+    catch (_) { return Promise.resolve(); }
+  }
+
   async function requestLandscape() {
+    await goFull();
     try {
-      if (screen.orientation?.lock) {
-        await screen.orientation.lock("landscape");
-      }
+      if (screen.orientation?.lock) await screen.orientation.lock("landscape");
     } catch (_) {
       // Some browsers and iPhones don't allow orientation locking.
-      // The player can rotate the phone manually instead.
     }
   }
+
+  {
+    const first = () => { goFull(); ["touchend", "click", "keydown"].forEach(t => document.removeEventListener(t, first)); };
+    ["touchend", "click", "keydown"].forEach(t => document.addEventListener(t, first));
+  }
+
+  // Block every kind of zoom: pinch, Safari gestures, and double-tap.
+  ["gesturestart", "gesturechange", "gestureend"].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+  document.addEventListener("touchmove", e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  let lastTap = 0;
+  document.addEventListener("touchend", e => {
+    const n = Date.now();
+    if (n - lastTap < 350 && !e.target.closest("button,input,select,textarea,a,label")) e.preventDefault();
+    lastTap = n;
+  }, { passive: false });
+  document.addEventListener("dblclick", e => e.preventDefault());
+
+  // Camera button
+  const camBtn = document.getElementById("mobile-cam");
+  camBtn.addEventListener("pointerdown", e => { e.preventDefault(); camMode = (camMode + 1) % 3; camBtn.classList.add("active"); });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(t => camBtn.addEventListener(t, () => camBtn.classList.remove("active")));
 
   // 3. Touch buttons act like the original keyboard controls.
   const controls = [
@@ -773,6 +811,7 @@ build(TR[0]);sel();requestAnimationFrame(loop);
   // 5. Preserve existing start/menu behaviour while adding mobile handling.
   const originalStart = start;
   start = function () {
+    goFull();
     originalStart();
 
     if (mobile) {
