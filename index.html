@@ -9,6 +9,7 @@
 html,body{height:100%;margin:0;background:#15181b;color:var(--i);font:15px/1.35 Barlow,system-ui,sans-serif;overflow:hidden}
 canvas#c{position:fixed;inset:0;width:100%;height:100%;filter:saturate(1.18) contrast(1.04);touch-action:none}
 *{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}input[type=range]{touch-action:none}
+#ww{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:6;pointer-events:none;display:flex;gap:12px;align-items:center;background:#d8232a;color:#fff;border:4px solid #fff;padding:6px 22px 6px 16px;font:800 clamp(24px,5vw,44px)/1 "Barlow Condensed","Arial Narrow",sans-serif;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 4px 0 rgba(0,0,0,.35);animation:ww .8s infinite}#ww b{font-size:1.1em}#ww.hide{display:none}@keyframes ww{0%,49%{background:#d8232a;color:#fff;border-color:#fff}50%,100%{background:#fff;color:#d8232a;border-color:#d8232a}}
 .wm,#kmh,#gr,#big,.tm,.lp,h2,#go{font-family:"Barlow Condensed","Arial Narrow",sans-serif}
 #vg{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.4))}
 .hp{position:fixed;background:var(--p);color:var(--c);font-variant-numeric:tabular-nums;border-left:4px solid var(--y)}
@@ -104,6 +105,7 @@ h2{font-size:42px;margin:0 0 8px}.rw{display:grid;grid-template-columns:28px 1fr
 <div id="ps" class="ov hide"><div class="card"><h2>Paused</h2><button id="pr" class="pb pri">Resume</button><button id="px" class="pb">Restart</button><button id="pm" class="pb">Main menu</button>
 <div class="vs"><label>Master<input type="range" id="vm" min="0" max="100"></label><label>Engine<input type="range" id="ve" min="0" max="100"></label><label>Effects<input type="range" id="vf" min="0" max="100"></label></div></div></div>
 <div id="tt" class="hide"></div>
+<div id="ww" class="hide"><b>⟲</b>Wrong way</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
 <script>
 window.addEventListener('error', e => {
@@ -313,29 +315,32 @@ function cross(c){
  if(c===me&&mode==='tt'){if(c.cl>=1&&!c.inv)ghostLap(clock-c.lapStart);c.inv=false;rec=[];s0=c.s}c.lapStart=clock;if(mode==='race'&&c.cl>=laps&&!c.fin){c.fin=true;c.ft=clock;if(c===me)finish()}}
 
 /* AI intelligence by difficulty (pace/skill untouched): er=mistake chance per braking zone, wb=steering wander, lk=traffic look-ahead, hz=brake planning horizon, df=defend rate, ym=yields to the player */
-let AIL=1;const AIP=[{er:.12,wb:.12,lk:.75,hz:30,df:0,ym:1},{er:.035,wb:.04,lk:1,hz:44,df:.4,ym:0},{er:.004,wb:0,lk:1.35,hz:60,df:1,ym:0}];
+let AIL=1;const AIP=[{er:.12,wb:.07,lk:.75,hz:30,df:0,ym:1},{er:.035,wb:.025,lk:1,hz:44,df:.4,ym:0},{er:.004,wb:0,lk:1.35,hz:60,df:1,ym:0}];
 function aiCtrl(c,dt){const hw=T.w/2,K=AIP[AIL],L=AIL;if(c.iq==null)c.iq=.7+Math.random()*.6;
  if(!c.lr){c.lr=new Float32Array(N).fill(.85);c.li=c.i}
  if((c.i-c.li+N)%N>40)c.li=c.i;
  while(c.li!==c.i){c.li=(c.li+1)%N;const q=c.li;if(Math.abs(c.lat)>hw+.2||Math.abs(c.vl)>4.5){for(let k=0;k<26;k++){const j2=(q-k+N)%N;c.lr[j2]=Math.max(.55,c.lr[j2]-.07*(1-k/26))}}else if(Math.abs(c.lat)<hw-.5)c.lr[q]=Math.min(1.04,c.lr[q]+.05)}
- c.lane*=1-Math.min(1,dt*.15);
+ const sg=clock<10;if(!sg)c.lane*=1-Math.min(1,dt*.15);
  const lk=clamp(Math.round((10+.5*Math.abs(c.v))/6),2,24),j=(c.i+lk)%N;let want=T.rl[j]+c.lane,cap=1e9,ah=0;
  for(const o of cars){if(o===c)continue;let dl=o.s-c.s;dl-=Math.round(dl/T.L)*T.L;const dg=o.lat-c.lat;
   if(dl>-3&&dl<(20+Math.max(0,c.v-o.v)*1.5)*K.lk&&Math.abs(dg)<4.4){ah=1;let sd=Math.abs(dg)<.5?(c.lat>0?-1:1):(dg>0?-1:1);if(L){const oL=o.lat-4.8>=-hw+2.6,oR=o.lat+4.8<=hw-2.6;if(oL!==oR)sd=oL?-1:1}want=clamp(o.lat+sd*4.8,-hw+2.6,hw-2.6);
-   if(dl>0&&dl<18&&Math.abs(want-o.lat)<3.6)cap=Math.min(cap,o.v*.98+Math.max(0,dl-9)*.35)}}
+   const gp=8+c.v*.1;if(dl>0&&dl<gp+10&&Math.abs(want-o.lat)<3.6)cap=Math.min(cap,o.v*.98+Math.max(0,dl-gp)*.35);
+   if(dl>0&&Math.abs(dg)<2.8&&c.v>o.v+2&&dl<(c.v-o.v)*1.1+6)cap=Math.min(cap,o.v*.85)}}
  const str=T.vl[j]*c.lr[j]>c.v*1.08;
  if(c.dh>0){c.dh-=dt;if(!ah)want=c.dw}
- else if(!ah&&str)for(const o of cars){if(o===c)continue;let dl=o.s-c.s;dl-=Math.round(dl/T.L)*T.L;const dg=o.lat-c.lat;
+ else if(!ah&&str&&!sg)for(const o of cars){if(o===c)continue;let dl=o.s-c.s;dl-=Math.round(dl/T.L)*T.L;const dg=o.lat-c.lat;
   if(dl<-3&&dl>-22&&Math.abs(dg)<7){
    if(K.ym&&(o===me||o.wasMe)&&o.v>c.v+1){want=clamp(c.lat-(dg>=0?1:-1)*3.5,-hw+2.6,hw-2.6);break}
-   if(K.df&&dl>-15&&clock-(c.dtm||-9)>5&&Math.random()<K.df*1.5*dt){c.dh=2.2;c.dw=clamp(o.lat,-hw+2.6,hw-2.6);c.dtm=clock;break}}}
+   if(K.df&&dl>-15&&dl<-8&&clock-(c.dtm||-9)>5&&Math.random()<K.df*1.5*dt){c.dh=2.2;c.dw=clamp(o.lat,-hw+2.6,hw-2.6);c.dtm=clock;break}}}
+ for(const o of cars){if(o===c)continue;let dl=o.s-c.s;dl-=Math.round(dl/T.L)*T.L;
+  if(dl<=-3&&dl>-9&&Math.abs(o.lat-c.lat)<4.6&&Math.abs(want-o.lat)<Math.abs(c.lat-o.lat))want=c.lat}
  c.off+=(clamp(want,-hw+2.6,hw-2.6)-c.off)*Math.min(1,dt*5);
  const p=T.pts[j],t=T.tan[j];
  c.steer=clamp(-ang(Math.atan2(p.x-t.z*c.off-c.x,p.z+t.x*c.off-c.z)-c.th)*2.5,-1,1);
  let vt=1e9;for(let k=0;k<K.hz;k++){const jj=(c.i+k)%N,q=T.vl[jj]*c.lr[jj];vt=Math.min(vt,Math.sqrt(q*q+2*42*6*k))}
  vt=Math.min(vt*c.skill*(mode==='race'&&me&&me!==c?1+clamp((me.prog-c.prog)*T.ds/400,0,.04):1),cap);
- if(c.mt>0){c.mt-=dt;vt*=c.mk}else{const bz=c.v>25&&c.brk>.25;if(bz&&!c.bz){c.bz=1;if(Math.random()<K.er*c.iq){c.mt=.8+Math.random()*.7;c.mk=Math.random()<.6?1.14:.78}}else if(!bz&&c.brk<.05)c.bz=0}
- c.steer=clamp(c.steer+K.wb*Math.sin(clock*.9+c.j*2.1)*Math.sin(clock*.37+c.j),-1,1);
+ if(c.mt>0){c.mt-=dt;vt*=c.mk}else{const bz=c.v>25&&c.brk>.25;if(bz&&!c.bz){c.bz=1;const crowd=sg||cars.some(o=>{if(o===c)return false;let d=o.s-c.s;d-=Math.round(d/T.L)*T.L;return Math.abs(d)<30&&Math.abs(o.lat-c.lat)<8});if(!crowd&&Math.random()<K.er*c.iq){c.mt=.8+Math.random()*.7;c.mk=Math.random()<.6?1.14:.78}}else if(!bz&&c.brk<.05)c.bz=0}
+ c.steer=clamp(c.steer+(sg?0:K.wb)*Math.sin(clock*.9+c.j*2.1)*Math.sin(clock*.37+c.j),-1,1);
  c.thr=clamp((vt-c.v)/3,0,1);c.brk=c.v>vt*1.03?clamp((c.v-vt)/5,0,1):0;
  if(state!=='cd'&&(Math.abs(c.v)<2.5||c.wh.some(q=>q.w.parent!==c.m))){c.stk+=dt;if(c.stk>3.5)respawn(c)}else c.stk=0}
 
@@ -346,10 +351,13 @@ function step(c,dt,on){let thr=0,brk=0,st=0;
  const t0=T.tan[c.i],hd=Math.cos(ang(c.th-Math.atan2(t0.x,t0.z))),u0=Math.abs(c.v),lw=c.wh.reduce((a,q)=>a+(q.w.parent!==c.m),0),off=Math.abs(c.lat)>T.w/2+1.6,
  eng=thr*20*(1-.5*c.dmg)*Math.max(0,1-c.v/105)*(lw>1?0:lw?.35:1),bra=brk*45,gf=Math.sqrt(1-Math.min(.9,((eng+bra)/70)**2)),am=Math.min(44,32+.4*u0),
  dl=-c.sm*clamp(4.4*am/Math.max(u0*u0,25),.015,.5),cs=Math.cos(dl),sn=Math.sin(dl),gm=am*(off?.6:1)*gf,Ff=gm*.97*1.85/3.65,Fr=gm*1.03*1.8/3.65,rev=brk&&c.v<=.5&&lw<2,n=5,h=dt/n,sl=c.sl;
+ /* very subtle slipstream: a car close behind and in line with another gets up to 14% less air drag, eased in and out */
+ let tg=0;if(u0>25)for(const o of cars){if(o===c)continue;let dl=o.s-c.s;dl-=Math.round(dl/T.L)*T.L;if(dl>2.5&&dl<24&&o.v>u0*.7){const dg=Math.abs(o.lat-c.lat);if(dg<2.4)tg=Math.max(tg,(1-dl/24)*(1-dg/2.4))}}
+ c.dr=(c.dr||0)+(tg-(c.dr||0))*Math.min(1,dt*2.5);
  let u=c.v,vv=c.vl,w=c.w,th=c.th,x=c.x,z=c.z;
  for(let q=0;q<n;q++){const vf=vv+w*1.8,vlw=-u*sn+vf*cs,vlg=u*cs+vf*sn,
   Fw=-clamp(Ff/.09*Math.atan(vlw/Math.max(Math.abs(vlg),3)),-Ff,Ff),Fy=-clamp(Fr/.09*Math.atan((vv-w*1.85)/Math.max(Math.abs(u),3)),-Fr,Fr),
-  ax=(rev?(u>-10?-10:0):eng-bra*(u>0)-(1+4e-4*u*u)*Math.sign(u))-7*sl*hd-Fw*sn,du=(ax+w*vv)*h,dv=(Fw*cs+Fy-w*u)*h;
+  ax=(rev?(u>-10?-10:0):eng-bra*(u>0)-(1+4e-4*u*u*(1-.14*c.dr))*Math.sign(u))-7*sl*hd-Fw*sn,du=(ax+w*vv)*h,dv=(Fw*cs+Fy-w*u)*h;
   w+=(1.8*Fw*cs-1.85*Fy)/2.6*h;u+=du;vv+=dv;th+=w*h;x+=(Math.sin(th)*u+Math.cos(th)*vv)*h;z+=(Math.cos(th)*u-Math.sin(th)*vv)*h}
  if(!thr&&!brk&&Math.abs(u)<.4&&Math.abs(vv)<.4){u=0;vv=0;w*=.5}
  if(off)u-=Math.sign(u)*Math.max(0,Math.abs(u)-26)*Math.min(1,1.8*dt);
@@ -378,18 +386,18 @@ function scrape(c,dt){if(Math.abs(c.v)<5)return;const s=Math.sin(c.th),co=Math.c
 function respawn(c){const p=T.pts[c.i],t=T.tan[c.i];c.x=p.x;c.z=p.z;c.th=Math.atan2(t.x,t.z);c.v=c.vl=c.w=0;c.dmg=0;c.stk=0;c.off=0;c.inv=true;softReset(c);for(const p of c.m.userData.parts){D=D.filter(d=>d.m!==p);if(p.parent!==c.m){c.m.add(p);p.rotation.order='XYZ';p.position.copy(p.userData.hp);p.rotation.set(0,0,0);if(p.userData.sp)p.userData.sp.rotation.set(0,0,0)}}c.sgp=c.sgr=0}
 function imp(c,Px,Pz,rx,rz){const X=vx(c)+Px,Z=vz(c)+Pz;c.w=clamp(c.w+(rz*Px-rx*Pz)/2.6,-8,8);setV(c,X,Z)}
 const pv=(c,rx,rz)=>[vx(c)+c.w*rz,vz(c)-c.w*rx];
-function collide(){for(let it=0;it<2;it++)for(let a=0;a<cars.length;a++)for(let b=a+1;b<cars.length;b++){const A=cars[a],B=cars[b];if((A.x-B.x)**2+(A.z-B.z)**2>64)continue;
+function collide(){for(let it=0;it<2;it++)for(let a=0;a<cars.length;a++)for(let b=a+1;b<cars.length;b++){const A=cars[a],B=cars[b];if((A.x-B.x)**2+(A.z-B.z)**2>64)continue;const aa=A.ai&&B.ai&&!A.wasMe&&!B.wasMe;
  for(let i=0;i<3;i++)for(let k=0;k<3;k++){
   const ax=A.x+Math.sin(A.th)*CZ[i],az=A.z+Math.cos(A.th)*CZ[i],bx=B.x+Math.sin(B.th)*CZ[k],bz=B.z+Math.cos(B.th)*CZ[k],dx=bx-ax,dz=bz-az,d=Math.hypot(dx,dz);
   if(d>=2.4||d<.01)continue;
   const nx=dx/d,nz=dz/d,pen=(2.4-d)*.5,mx=(ax+bx)/2,mz=(az+bz)/2,rax=mx-A.x,raz=mz-A.z,rbx=mx-B.x,rbz=mz-B.z;
   A.x-=nx*pen;A.z-=nz*pen;B.x+=nx*pen;B.z+=nz*pen;
   let [pax,paz]=pv(A,rax,raz),[pbx,pbz]=pv(B,rbx,rbz);const vn=(pbx-pax)*nx+(pbz-paz)*nz;
-  if(vn>=0)continue;
-  const ca=raz*nx-rax*nz,cb=rbz*nx-rbx*nz,j=-1.25*vn/(2+(ca*ca+cb*cb)/2.6);imp(A,-j*nx,-j*nz,rax,raz);imp(B,j*nx,j*nz,rbx,rbz);
+  if(vn>=0){if(clock-(A.skT||-1)>.06){A.skT=clock;spark(mx,Math.max(A.y,B.y)+.4,mz,1,5)}continue}
+  const ca=raz*nx-rax*nz,cb=rbz*nx-rbx*nz,j=-1.25*vn*(aa?.55:1)/(2+(ca*ca+cb*cb)/2.6);imp(A,-j*nx,-j*nz,rax,raz);imp(B,j*nx,j*nz,rbx,rbz);if(clock-(A.skT||-1)>.04){A.skT=clock;spark(mx,Math.max(A.y,B.y)+.4,mz,Math.min(20,3+(j*2|0)),6+j)}
   const tx=-nz,tz=nx;[pax,paz]=pv(A,rax,raz);[pbx,pbz]=pv(B,rbx,rbz);
   const vt=(pbx-pax)*tx+(pbz-paz)*tz,ta=raz*tx-rax*tz,tb=rbz*tx-rbx*tz,jt=clamp(-vt/(2+(ta*ta+tb*tb)/2.6),-.35*j,.35*j);
-  imp(A,-jt*tx,-jt*tz,rax,raz);imp(B,jt*tx,jt*tz,rbx,rbz);hit(A,j,mx,mz,i==2,-nx,-nz);hit(B,j,mx,mz,k==2,nx,nz)}}}
+  imp(A,-jt*tx,-jt*tz,rax,raz);imp(B,jt*tx,jt*tz,rbx,rbz);hit(A,aa?j*.5:j,mx,mz,i==2,-nx,-nz);hit(B,aa?j*.5:j,mx,mz,k==2,nx,nz)}}}
 const rank=()=>cars.slice().sort((a,b)=>(b.fin?1e9-b.ft:b.prog)-(a.fin?1e9-a.ft:a.prog));
 
 function start(){
@@ -406,7 +414,7 @@ function renderRes(){const L=rank(),sig=L.map(c=>c.name+(c.fin?1:0)).join();if(s
 function finish(){state='done';me.ai=true;me.wasMe=true;me.lane=0;me.skill=.85;resSig='';
  $('res').innerHTML='<div class="card"><h2>Race result</h2><div id="rl"></div><div class="row"><button id="ra" class="pri">Race again</button><button id="mn">Menu</button></div></div>';
  renderRes();$('res').classList.remove('hide');$('ra').onclick=start;$('mn').onclick=showMenu}
-function showMenu(){state='menu';build(TR[ti]);$('hud').classList.add('hide');$('res').classList.add('hide');$('menu').classList.remove('hide');sel()}
+function showMenu(){state='menu';$('ww').classList.add('hide');wwT=0;build(TR[ti]);$('hud').classList.add('hide');$('res').classList.add('hide');$('menu').classList.remove('hide');sel()}
 
 let AC,osc,gn,GF,GG,KO,KG,NS,XG,XF,XB,XL,XO,XT,XJ,XD,XK;
 function scrapeInit(){try{const sr=AC.sampleRate,mg=v=>{const n=AC.createGain();n.gain.value=v;return n},mb=(t,f,q)=>{const n=AC.createBiquadFilter();n.type=t;n.frequency.value=f;n.Q.value=q;return n},
@@ -448,6 +456,8 @@ function wheelUpd(){const w=me.m.userData.wl;if(!w)return;const v=Math.abs(me.v)
 /* engine keeps revving on the throttle even when missing wheels stop the car from moving */
 let rvF=0;
 function engRev(f){const c=me,lw=c.wh.reduce((a,q)=>a+(q.w.parent!==c.m),0),fr=lw&&c.thr>0?.9+.06*Math.sin(clock*45):0,t=Math.max(f,fr);rvF+=(t-rvF)*(t>rvF?.25:.12);return rvF}
+let wwT=0;
+function wrongWay(dt){const c=me;let bad=false;if(c&&state==='race'){const t=T.tan[c.i];bad=c.v>1&&Math.sin(c.th)*t.x+Math.cos(c.th)*t.z<-.3}wwT=bad?wwT+c.v*dt:0;$('ww').classList.toggle('hide',wwT<3)}
 function hud(){const v=Math.abs(me.v),g=Math.min(8,1+Math.floor(v/11)),r=rank(),pb=ls.g('apex:'+TR[ti].n),lt=me.cl>=0?clock-me.lapStart:0,f0=clamp((v-(g-1)*11)/11,0,1),f=engRev(f0),n=Math.round((v<.5&&f<.1?0:.25+.75*f)*15);
  $('kmh').textContent=Math.round(v*3.6);$('gr').textContent=me.v<-.5?'R':v<.5?'N':g;RV.forEach((e,i)=>e.style.opacity=i<n?1:.16);
  $('tl').innerHTML=`<div class="lp">Lap ${Math.min(laps,Math.max(1,me.cl+1))}${mode==='race'?' / '+laps:''}</div><div class="tm">${fmt(lt)}</div><div class="sb"><span>Last</span>${fmt(me.last)}</div><div class="sb"><span>Best</span>${fmt(Math.min(me.best,pb))}</div>${gh&&isFinite(gd)?`<div class="sb" style="color:${gd<0?'#5fdc82':'#ff7a6b'}"><span>Ghost</span>${gd>0?'+':''}${gd.toFixed(3)}</div>`:''}`;
@@ -468,7 +478,7 @@ function update(dt){sparkUpd(dt);WT.offset.x+=dt*.015;WT.offset.y+=dt*.01;
   cam.near=1;cam.fov=34;if(w>640)cam.setViewOffset(w,h,-pw/2,0,w,h);else cam.setViewOffset(w,h,0,h*.33,w,h);cam.updateProjectionMatrix();if(gn){gn.gain.value=0;GG.gain.value=0;KG.gain.value=0;if(XG)XG.gain.value=0}return}
  if(state==='cd'){if(!hold)cd-=dt;if(cd<=0){state='race';clock=0}}else clock+=dt;if(state==='done')renderRes();
 
- const on=state!=='cd';cars.forEach(c=>step(c,dt,on));collide();
+ const on=state!=='cd';cars.forEach(c=>step(c,dt,on));collide();cars.forEach(c=>scrape(c,dt));
  cars.forEach(c=>{c.rv+=(-45*c.rl-5*c.rv)*dt;c.rl+=c.rv*dt;c.m.position.set(c.x,c.y,c.z);c.m.rotation.set(c.pt+c.sgp,c.th,c.rl+c.w*c.v*.0015+c.sgr);c.wh.forEach(w=>{if(w.w.parent!==c.m)return;w.sp.rotation.x+=c.v*dt/.4;if(w.f)w.w.rotation.y=-c.sm*.45});c.m.userData.sr.rotation.z=-c.sm*1.9;soft(c,dt);scrape(c,dt)});
  D.forEach(d=>{const m=d.m.position,wh=d.k==='w',r=d.m.rotation,P=Math.PI;d.y-=22*dt;m.x+=d.x*dt;m.y+=d.y*dt;m.z+=d.z*dt;d.i=nidx(m.x,m.z,d.i);
   const gy=gAt(m.x,m.z,d.i)+(wh?.4-.15*Math.min(1,Math.abs(r.z)/(P/2)):d.h);let on=false;
@@ -479,7 +489,7 @@ function update(dt){sparkUpd(dt);WT.offset.x+=dt*.015;WT.offset.y+=dt*.01;
    else if(on)r.z+=(d.sg*P/2-r.z)*Math.min(1,dt*5);else{d.sp.rotation.x+=d.rx*dt;r.y+=d.ry*dt*.3;r.z+=d.rz*dt*.2}}
   else if(on&&sp<3){const k=Math.min(1,dt*6);r.x+=(Math.round(r.x/P)*P-r.x)*k;r.z+=(Math.round(r.z/P)*P-r.z)*k}
   else{r.x+=d.rx*dt;r.y+=d.ry*dt;r.z+=d.rz*dt}});
- ghostUpd(dt);hl.intensity+=((T.tn[me.i]?.35:.95)-hl.intensity)*Math.min(1,dt*5);sun.intensity=.84*hl.intensity;hud();
+ ghostUpd(dt);hl.intensity+=((T.tn[me.i]?.35:.95)-hl.intensity)*Math.min(1,dt*5);sun.intensity=.84*hl.intensity;hud();wrongWay(dt);
  if(snap)cy=me.y;cy+=(me.y-cy)*Math.min(1,dt*12);camTh=snap?me.th:camTh+ang(me.th-camTh)*(1-Math.exp(-dt*5));snap=false;me.sh*=Math.exp(-dt*4);const q=me.sh;
  me.m.userData.hm.forEach(h=>h.visible=camMode!==1);me.m.userData.hh[0].visible=camMode!==1;me.m.userData.hh[1].visible=camMode===1;if(camMode===1)wheelUpd();$('cl').style.visibility=camMode===1?'hidden':'';
  if(camMode){const m=me.m,ck=camMode===1;m.updateMatrixWorld();cam.position.copy(m.localToWorld(V3.set(0,ck?1.18:.5,ck?.22:3.35)));cam.position.y+=(Math.random()-.5)*q*.15;
