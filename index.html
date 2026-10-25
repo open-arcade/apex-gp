@@ -206,9 +206,9 @@ function mkCar(c,c2,c3){c2=c2==null?c:c2;c3=c3==null?0xf4f4f4:c3;const g=new THR
   const leds=[];for(let i=0;i<15;i++){const on=i<5?0x3ddc6b:i<10?0xff3b30:0x3aa0ff,off=i<5?0x0f3a1a:i<10?0x3d0f0c:0x0c2540,m=new THREE.Mesh(new THREE.BoxGeometry(.011,.011,.006),new THREE.MeshBasicMaterial({color:off}));m.position.set((i-7)*.0145,.065,.024);sr.add(m);leds.push({m:m.material,on,off})}
   add(new THREE.CylinderGeometry(.03,.03,.3,10),0x2a2c30,0,0,-.17,[P,0,0],sw);
   g.wl={cv,tx,leds,key:''}}
- add(B(.07,.1,1.2),bk,.3,.83,.45);add(B(.07,.1,1.2),bk,-.3,.83,.45);[-1,1].forEach(s=>{const mg=new THREE.Group();mg.position.set(s*.8,.97,.9);g.add(mg);add(B(.22,.1,.03),bk,0,0,0,0,mg);add(B(.18,.07,.01),0x9db4c6,0,0,-.02,0,mg);add(B(.4,.03,.03),bk,-s*.2,-.03,.05,0,mg);mg.userData={k:'p',hp:mg.position.clone(),h:.08,th:3};parts.push(mg)});
+ add(B(.07,.1,1.2),bk,.3,.83,.45);add(B(.07,.1,1.2),bk,-.3,.83,.45);g.mgl=[];[-1,1].forEach(s=>{const mg=new THREE.Group(),mi=new THREE.Group();mg.position.set(s*.66,.96,.92);mi.rotation.y=s*.35;mg.add(mi);g.add(mg);add(B(.22,.1,.03),bk,0,0,0,0,mi);g.mgl[s>0?1:0]=add(B(.18,.07,.01),0x9db4c6,0,0,-.02,0,mi);add(B(.42,.03,.03),bk,-s*.2,-.09,.04,[0,0,s*.3],mg);mg.userData={k:'p',hp:mg.position.clone(),h:.08,th:3};parts.push(mg)});
  const sh=new THREE.Mesh(new THREE.PlaneGeometry(2.8,7),new THREE.MeshBasicMaterial({color:0,transparent:true,opacity:.35,depthWrite:false}));sh.rotation.x=-P;sh.position.set(0,.12,.4);g.add(sh);
- g.userData={fw,rw,parts,wh,hm,def,sr,hh:g.hh,wl:g.wl,sb:{d:new Float32Array(36),v:new Float32Array(36),p:new Float32Array(36),dirty:false}};
+ g.userData={fw,rw,parts,wh,hm,def,sr,hh:g.hh,wl:g.wl,mg:g.mgl,sb:{d:new Float32Array(36),v:new Float32Array(36),p:new Float32Array(36),dirty:false}};
  def.forEach(m=>{m.updateMatrix();const pa=m.geometry.attributes.position,n=pa.count,o=Float32Array.from(pa.array),wi=new Uint8Array(n*3),ww=new Float32Array(n*3);
   for(let i=0;i<n;i++){V3.set(o[i*3],o[i*3+1],o[i*3+2]).applyMatrix4(m.matrix).add(m.parent.position);const ws=NP.map((p,k)=>[Math.exp(-((p[0]-V3.x)**2+(p[1]-V3.y)**2+(p[2]-V3.z)**2)/.9),k]).sort((a,b)=>b[0]-a[0]).slice(0,3),sm=Math.max(1,ws[0][0]+ws[1][0]+ws[2][0]);ws.forEach((w,j)=>{wi[i*3+j]=w[1];ww[i*3+j]=w[0]/sm})}
   m.userData.sb={o,wi,ww,q:m.quaternion.w<.9999?m.quaternion.clone().invert():null}});
@@ -489,7 +489,19 @@ function update(dt){sparkUpd(dt);WT.offset.x+=dt*.015;WT.offset.y+=dt*.01;
  cam.updateProjectionMatrix()}
 
 let last=performance.now();
-function loop(now){requestAnimationFrame(loop);const dt=Math.min(.033,(now-last)/1000);last=now;if(!paused)update(dt);else if(gn){gn.gain.value=0;GG.gain.value=0;KG.gain.value=0;if(XG)XG.gain.value=0}SKY.position.copy(cam.position);if(me&&state!=='menu'){sun.position.set(me.x+130,me.y+230,me.z+90);sun.target.position.set(me.x,me.y,me.z)}else if(SC){sun.position.set(SC.position.x+130,SC.position.y+230,SC.position.z+90);sun.target.position.copy(SC.position)}R.render(S,cam)}
+/* working mirrors: first-person view renders each mirror's rear view into its glass (alternating sides to save time) */
+const MR={f:0,cur:null};
+function mirrorsRender(){
+ const gl=me&&state!=='menu'&&camMode===1&&me.m.userData.mg;
+ if(!gl){if(MR.cur){MR.cur.forEach(g=>{if(g.userData.om)g.material=g.userData.om});MR.cur=null}return}
+ if(!MR.cam){const W=matchMedia('(pointer: coarse)').matches?192:256;MR.cam=new THREE.PerspectiveCamera(32,2.57,.3,6000);MR.rt=[0,1].map(()=>{const t=new THREE.WebGLRenderTarget(W,W/2);t.texture.wrapS=THREE.RepeatWrapping;t.texture.repeat.x=-1;t.texture.offset.x=1;return t});MR.mat=MR.rt.map(t=>new THREE.MeshBasicMaterial({map:t.texture}))}
+ if(MR.cur!==gl){gl.forEach((g,i)=>{if(!g.userData.om)g.userData.om=g.material;g.material=MR.mat[i]});MR.cur=gl}
+ const i=MR.f,s=i?1:-1,m=me.m,c=MR.cam;MR.f^=1;
+ m.updateMatrixWorld();c.position.copy(m.localToWorld(V3.set(s*.66,.96,.86)));c.lookAt(m.localToWorld(V3.set(s*.66+s*3.6,.96-1.2,.86-30)));
+ const sa=R.shadowMap.autoUpdate;R.shadowMap.autoUpdate=false;gl.forEach(g=>g.visible=false);
+ R.setRenderTarget(MR.rt[i]);R.render(S,c);R.setRenderTarget(null);
+ gl.forEach(g=>g.visible=true);R.shadowMap.autoUpdate=sa}
+function loop(now){requestAnimationFrame(loop);const dt=Math.min(.033,(now-last)/1000);last=now;if(!paused)update(dt);else if(gn){gn.gain.value=0;GG.gain.value=0;KG.gain.value=0;if(XG)XG.gain.value=0}SKY.position.copy(cam.position);if(me&&state!=='menu'){sun.position.set(me.x+130,me.y+230,me.z+90);sun.target.position.set(me.x,me.y,me.z)}else if(SC){sun.position.set(SC.position.x+130,SC.position.y+230,SC.position.z+90);sun.target.position.copy(SC.position)}mirrorsRender();R.render(S,cam)}
 
 addEventListener('keydown',e=>{keys[e.code]=true;if(e.code.startsWith('Arrow')||e.code==='Space')e.preventDefault();
  if(state==='menu')return;
